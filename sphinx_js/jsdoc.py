@@ -4,7 +4,11 @@ from json import load
 import os
 from os.path import abspath, relpath, splitext
 from subprocess import PIPE, Popen
+import sys
 from tempfile import TemporaryFile
+
+if sys.platform == 'win32':
+    import posixpath as ppath
 
 from six import string_types
 from sphinx.errors import SphinxError
@@ -45,8 +49,16 @@ def run_jsdoc(app):
     # constructor one gets merged into the class one and is intentionally
     # marked as undocumented, even if it isn't. See
     # https://github.com/jsdoc3/jsdoc/issues/1129.
-    doclets = [d for d in doclets if d.get('comment')
-                                     and not d.get('undocumented')]
+    #
+    # Also, windows file path separators are converted into unix path separators
+    # here to ensure this works on all supported platforms
+    new_doclets = []
+    for d in doclets:
+        if d.get('comment') and not d.get('undocumented'):
+            if sys.platform == 'win32' and 'meta' in d and 'path' in d['meta']:
+                orig = d['meta']['path']
+                d['meta']['path'] = orig.replace(os.sep, ppath.sep)
+            new_doclets.append(d)
 
     # Build table for lookup by name, which most directives use:
     app._sphinxjs_doclets_by_path = SuffixTree()
@@ -110,7 +122,10 @@ def doclet_full_path(d, base_dir, longname_field='longname'):
         for the long name of the object to emit a path to
     """
     meta = d['meta']
-    rel = relpath(meta['path'], base_dir)
+    if sys.platform == 'win32':
+        rel = relpath(meta['path'], base_dir).replace(os.sep, ppath.sep)
+    else:
+        rel = relpath(meta['path'], base_dir)
     if not rel.startswith(('../', './')) and rel not in ('..', '.'):
         # It just starts right out with the name of a folder in the cwd.
         rooted_rel = './%s' % rel
