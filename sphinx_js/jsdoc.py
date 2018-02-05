@@ -29,7 +29,7 @@ def run_jsdoc(app):
 
     # Use a temporary file to handle large output volume. JSDoc defaults to
     # utf8-encoded output.
-    with getwriter('utf-8')(TemporaryFile(mode='w+')) as temp:
+    with TemporaryFile(mode='w+', encoding='utf-8') as temp:
         p = Popen(jsdoc_command, stdout=temp)
         p.wait()
         # Once output is finished, move back to beginning of file and load it:
